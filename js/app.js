@@ -171,7 +171,7 @@
       h += '<h2>Карточки</h2>';
       h += r.cards.length ? cardList(r.cards)
         : '<p class="muted">Ничего не нашлось. Попробуйте одно слово: «колено», «лопатка», «пятка», «судорога». ' +
-          'База пока покрывает спину между лопаток, бедро и колено, трицепс и локоть, икры и стопы.</p>';
+          'Пока нет карточек для груди, живота, бицепса и передней поверхности голени.</p>';
       box.innerHTML = h;
       return;
     }
@@ -456,10 +456,24 @@
     buildIndex();
     window.addEventListener('hashchange', route);
     route();
+    warmCache();
   }).catch(function (err) {
     app.innerHTML = '<p class="err-msg">Не удалось загрузить данные. Для первой загрузки нужен интернет.<br><small>' +
       esc(err.message) + '</small></p>';
   });
+
+  // После обновления данных один раз подтягиваем все схемы, чтобы новые карточки
+  // открывались без сети, даже если их ещё не смотрели.
+  function warmCache() {
+    if (!('serviceWorker' in navigator) || !navigator.onLine) return;
+    var key = 'tochki_warm', want = DATA.version + '/' + DATA.cards.length;
+    try { if (localStorage.getItem(key) === want) return; } catch (e) { return; }
+    navigator.serviceWorker.ready.then(function () {
+      return Promise.all(DATA.cards.map(function (c) { return c.svg ? fetch(c.svg) : null; }));
+    }).then(function () {
+      try { localStorage.setItem(key, want); } catch (e) { /* не страшно */ }
+    }).catch(function () { /* попробуем при следующем запуске */ });
+  }
 
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {

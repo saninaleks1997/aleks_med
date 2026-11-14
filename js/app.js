@@ -72,7 +72,7 @@
   function buildIndex() {
     DATA.cards.forEach(function (c) {
       var zoneNames = (c.zones || []).map(function (z) { return Body.ZONE_NAMES[z] || ''; });
-      c._strong = words([c.name_ru, c.name_lat, (c.keywords || []).join(' '), zoneNames.join(' ')].join(' '));
+      c._strong = words([c.name_ru, c.name_lat, c.code || '', (c.name_ru || '').replace(/-/g, ''), c.meridian || '', (c.keywords || []).join(' '), zoneNames.join(' ')].join(' '));
       c._weak = words([(c.symptoms || []).join(' '), c.referred].join(' '));
     });
     (DATA.symptoms || []).forEach(function (s) { s._w = words(s.text + ' ' + (s.keywords || []).join(' ')); });
@@ -110,10 +110,14 @@
     var st = STATUS[statusOf(card)] || STATUS.reference;
     return '<span class="badge ' + st.cls + '">' + st.label + '</span>';
   }
+  function isAcu(c) { return c.kind === 'acu'; }
+  function title(c) { return isAcu(c) ? c.code + ' · ' + c.name_ru : c.name_ru; }
+  function muscles() { return DATA.cards.filter(function (c) { return !isAcu(c); }); }
+  function acupoints() { return DATA.cards.filter(isAcu); }
   function cardRow(card) {
     var note = userCard(card.id).note;
-    return '<a class="row" href="#/card/' + esc(card.id) + '">' +
-      '<span class="row-main"><b>' + esc(card.name_ru) + '</b>' +
+    return '<a class="row' + (isAcu(card) ? ' row-acu' : '') + '" href="#/card/' + esc(card.id) + '">' +
+      '<span class="row-main"><b>' + esc(title(card)) + '</b>' +
       '<small>' + esc(card.short || card.name_lat) + '</small></span>' +
       '<span class="row-side">' + badge(card) + (note ? '<small class="has-note">есть заметка</small>' : '') + '</span></a>';
   }
@@ -171,14 +175,15 @@
       h += '<h2>Карточки</h2>';
       h += r.cards.length ? cardList(r.cards)
         : '<p class="muted">Ничего не нашлось. Попробуйте одно слово: «колено», «лопатка», «пятка», «судорога». ' +
-          'Пока нет карточек для груди, живота, бицепса и передней поверхности голени.</p>';
+          'Или откройте вкладку «Симптомы».</p>';
       box.innerHTML = h;
       return;
     }
     h += '<div class="seg" role="tablist">' +
       '<button role="tab" data-tab="body" class="' + (homeTab === 'body' ? 'on' : '') + '">Тело</button>' +
       '<button role="tab" data-tab="symptoms" class="' + (homeTab === 'symptoms' ? 'on' : '') + '">Симптомы</button>' +
-      '<button role="tab" data-tab="all" class="' + (homeTab === 'all' ? 'on' : '') + '">Все карточки</button></div>';
+      '<button role="tab" data-tab="all" class="' + (homeTab === 'all' ? 'on' : '') + '">Мышцы</button>' +
+      '<button role="tab" data-tab="acu" class="' + (homeTab === 'acu' ? 'on' : '') + '">Точки ВОЗ</button></div>';
     if (homeTab === 'body') {
       h += '<p class="hint">Нажмите на зону тела. Подсвечены зоны, для которых уже есть карточки.</p>' +
         '<div class="bodies"><figure>' + bodySvg('front') + '<figcaption>Спереди</figcaption></figure>' +
@@ -189,8 +194,17 @@
           return '<a class="row" href="#/symptom/' + esc(s.id) + '"><span class="row-main"><b>' + esc(s.text) +
             '</b></span><span class="row-side"><small>' + s.cards.length + ' карт.</small></span></a>';
         }).join('') + '</div>';
+    } else if (homeTab === 'acu') {
+      h += '<p class="hint">Классические китайские точки (нумерация ВОЗ) — дополнение к мышечным карточкам. ' +
+        'Расстояния даны в цунях: <a href="#/rules">как мерить цунь</a>.</p>';
+      var byMer = {}, order = [];
+      acupoints().forEach(function (c) {
+        if (!byMer[c.meridian]) { byMer[c.meridian] = []; order.push(c.meridian); }
+        byMer[c.meridian].push(c);
+      });
+      order.forEach(function (m) { h += '<h2 class="mer">' + esc(m) + '</h2>' + cardList(byMer[m]); });
     } else {
-      h += cardList(DATA.cards);
+      h += cardList(muscles());
     }
     h += DISCLAIMER + '<p class="links"><a href="#/rules">Общие правила нажима</a> · <a href="#/settings">Заметки: экспорт и импорт</a></p>';
     box.innerHTML = h;
@@ -199,11 +213,12 @@
   function viewZone(id) {
     var name = Body.ZONE_NAMES[id];
     if (!name) return viewNotFound();
-    var cards = DATA.cards.filter(function (c) { return (c.zones || []).indexOf(id) >= 0; });
+    var inZone = function (c) { return (c.zones || []).indexOf(id) >= 0; };
+    var ms = muscles().filter(inZone), ac = acupoints().filter(inZone);
     app.innerHTML = '<header class="top"><a class="back" href="#/">‹ Назад</a><h1>' + esc(name) + '</h1></header>' +
-      (cards.length ? '<p class="hint">Мышцы этой зоны. Боль часто отдаёт не туда, где сидит точка — смотрите описание в карточке.</p>' + cardList(cards)
-        : '<p class="muted">Для этой зоны карточек пока нет — они появятся на следующих этапах. ' +
-          'Попробуйте поиск по симптому на главном экране.</p>') + DISCLAIMER;
+      (ms.length ? '<p class="hint">Мышцы этой зоны. Боль часто отдаёт не туда, где сидит точка — смотрите описание в карточке.</p>' + cardList(ms)
+        : '<p class="muted">Мышечных карточек для этой зоны пока нет. Попробуйте поиск по симптому на главном экране.</p>') +
+      (ac.length ? '<h2>Китайские точки</h2>' + cardList(ac) : '') + DISCLAIMER;
   }
 
   function viewSymptom(id) {
@@ -233,7 +248,9 @@
     if (!c) return viewNotFound();
     var st = statusOf(c), u = userCard(id);
     var h = '<header class="top"><a class="back" href="javascript:history.back()">‹ Назад</a></header>' +
-      '<article class="card"><h1>' + esc(c.name_ru) + '</h1><p class="lat">' + esc(c.name_lat) + '</p>' +
+      '<article class="card' + (isAcu(c) ? ' card-acu' : '') + '">' +
+      (isAcu(c) ? '<p class="kind">Китайская точка · ' + esc(c.code) + '</p>' : '') +
+      '<h1>' + esc(c.name_ru) + '</h1><p class="lat">' + esc(isAcu(c) ? c.name_lat + ' · ' + c.meridian : c.name_lat) + '</p>' +
       '<button id="st-toggle" class="status ' + STATUS[st].cls + '" aria-pressed="' + (st === 'verified_self') + '">' +
       '<span class="dot"></span>' + STATUS[st].label + '<small>нажмите, чтобы изменить</small></button>';
     if (st === 'reference') {
@@ -242,14 +259,17 @@
     }
     if (c.svg) {
       h += '<figure class="scheme"><img src="' + esc(c.svg) + '" alt="Схема: ' + esc(c.name_ru) + '">' +
-        '<figcaption><span class="lg lg-muscle"></span>мышца <span class="lg lg-point"></span>точка нажима ' +
-        '<span class="lg lg-pain"></span>куда отдаёт боль' + (c.svg_note ? '<br>' + esc(c.svg_note) : '') +
+        '<figcaption>' + (isAcu(c) ? '<span class="lg lg-acu"></span>точка <span class="lg lg-measure"></span>разметка в цунях'
+          : '<span class="lg lg-muscle"></span>мышца <span class="lg lg-point"></span>точка нажима <span class="lg lg-pain"></span>куда отдаёт боль') +
+        (c.svg_note ? '<br>' + esc(c.svg_note) : '') +
         '<br>Схема показывает зону; точное место — по ориентирам ниже.</figcaption></figure>';
     }
-    h += '<section><h2>Куда отдаёт боль</h2><p>' + esc(c.referred) + '</p>' + list(c.symptoms, 'tags') + '</section>';
+    h += '<section><h2>' + (isAcu(c) ? 'Для чего используют (по традиции)' : 'Куда отдаёт боль') + '</h2><p>' + esc(c.referred) + '</p>' +
+      list(c.symptoms, 'tags') + '</section>';
 
     h += '<section><h2>Как найти точку</h2>';
     if (c.find_intro) h += '<p>' + esc(c.find_intro) + '</p>';
+    if (isAcu(c)) h += '<p class="small"><a href="#/rules">Как мерить цунь</a> — 1 цунь ≈ ширина вашего большого пальца.</p>';
     (c.points || []).forEach(function (p) {
       h += '<div class="point"><h3><span class="num">' + esc(p.n) + '</span>' + esc(p.title) + '</h3><ol>' +
         p.steps.map(function (s) { return '<li>' + esc(s) + '</li>'; }).join('') + '</ol></div>';
@@ -274,6 +294,9 @@
 
     h += '<section><h2>Моя заметка</h2><textarea id="note" rows="4" placeholder="Например: нашёл точнее на 2 пальца ниже">' +
       esc(u.note || '') + '</textarea><p id="note-state" class="muted small">Сохраняется автоматически, только в этом телефоне.</p></section>';
+    var rel = isAcu(c) ? (c.related || []).map(function (r) { return cardById[r]; }).filter(Boolean)
+      : acupoints().filter(function (a) { return (a.related || []).indexOf(c.id) >= 0; });
+    if (rel.length) h += '<section><h2>' + (isAcu(c) ? 'Мышцы рядом' : 'Китайские точки рядом') + '</h2>' + cardList(rel) + '</section>';
     h += '<section class="sources"><h2>Источники</h2>' + list(c.sources) + '</section></article>' + DISCLAIMER;
     app.innerHTML = h;
 
@@ -321,7 +344,7 @@
 
   function viewRules() {
     var r = DATA.rules;
-    app.innerHTML = '<header class="top"><a class="back" href="javascript:history.back()">‹ Назад</a><h1>Общие правила нажима</h1></header>' +
+    app.innerHTML = '<header class="top"><a class="back" href="javascript:history.back()">‹ Назад</a><h1>Общие правила</h1></header>' +
       r.map(function (s) { return '<section><h2>' + esc(s.title) + '</h2>' + list(s.items) + '</section>'; }).join('') + DISCLAIMER;
   }
 

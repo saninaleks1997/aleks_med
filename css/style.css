@@ -55,7 +55,7 @@ li { margin: 4px 0; }
 
 .seg { display: flex; margin: 12px 0 4px; background: var(--line); border-radius: 10px; padding: 3px; }
 .seg button {
-  flex: 1; min-height: 38px; border: 0; background: none; color: var(--text); font: inherit; font-size: 15px; border-radius: 8px;
+  flex: 1; min-height: 38px; padding: 0 2px; border: 0; background: none; color: var(--text); font: inherit; font-size: 14px; border-radius: 8px;
 }
 .seg button.on { background: var(--panel); font-weight: 600; box-shadow: 0 1px 2px rgba(0, 0, 0, .15); }
 .hint { color: var(--muted); font-size: 14px; }
@@ -183,3 +183,12 @@ textarea {
 .bb-home { flex: 0 0 96px; color: var(--text); background: var(--bg); border: 1px solid var(--line); }
 .bb-doctor { flex: 1 1 auto; color: #fff; background: #b91c1c; }
 .on-doctor .bb-doctor { background: var(--bg); color: var(--danger); border: 1px solid var(--danger); }
+
+/* китайские точки */
+.row-acu .row-main b { color: var(--text); }
+.row-acu { border-left: 4px solid #f59e0b; }
+h2.mer { font-size: 16px; color: var(--muted); }
+.card-acu .kind { margin: 6px 0 0; font-size: 13px; font-weight: 700; color: #b45309; text-transform: uppercase; letter-spacing: .03em; }
+@media (prefers-color-scheme: dark) { .card-acu .kind { color: #fbbf24; } }
+.lg-acu { background: #f59e0b; border: 2px solid #111827; border-radius: 50%; }
+.lg-measure { height: 0; width: 14px; border-top: 2px dashed #b45309; border-radius: 0; vertical-align: 3px; }

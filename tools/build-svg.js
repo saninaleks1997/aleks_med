@@ -17,6 +17,7 @@ const C = {
 const r1 = v => Math.round(v * 10) / 10;
 
 function svgOpen(crop, title) {
+  CROP = crop;
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${crop.join(' ')}" role="img">` +
     `<title>${title}</title>` +
     `<defs><pattern id="hatch" width="3" height="3" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">` +
@@ -39,10 +40,18 @@ function marker(x, y, n, r) {
   return `<circle cx="${r1(x)}" cy="${r1(y)}" r="${r}" fill="${C.point}" stroke="#fff" stroke-width="${r1(r * 0.22)}"/>` +
     `<text x="${r1(x)}" y="${r1(y + r * 0.38)}" font-size="${r1(r * 1.25)}" font-weight="700" text-anchor="middle" fill="#fff" font-family="Helvetica,Arial,sans-serif">${n}</text>`;
 }
+let CROP = null; // текущая рамка рисунка: подписи не должны вылезать за край
 function label(fs_, from, to, text, anchor) {
   anchor = anchor || (to[0] < from[0] ? 'end' : 'start');
-  const pad = anchor === 'start' ? 1 : anchor === 'end' ? -1 : 0;
-  return `<line x1="${r1(from[0])}" y1="${r1(from[1])}" x2="${r1(to[0])}" y2="${r1(to[1])}" stroke="${C.leader}" stroke-width=".3"/>` +
+  let pad = anchor === 'start' ? 1 : anchor === 'end' ? -1 : 0;
+  const lt = to;
+  if (CROP) {
+    const w = text.length * fs_ * 0.56, L0 = CROP[0] + fs_ * 0.3, R0 = CROP[0] + CROP[2] - fs_ * 0.3;
+    let x0 = anchor === 'start' ? to[0] + pad : to[0] + pad - w;
+    x0 = Math.max(L0, Math.min(R0 - w, x0));
+    anchor = 'start'; pad = 0; to = [x0, to[1]];
+  }
+  return `<line x1="${r1(from[0])}" y1="${r1(from[1])}" x2="${r1(lt[0])}" y2="${r1(lt[1])}" stroke="${C.leader}" stroke-width=".3"/>` +
     `<circle cx="${r1(from[0])}" cy="${r1(from[1])}" r=".6" fill="${C.leader}"/>` +
     `<text x="${r1(to[0] + pad)}" y="${r1(to[1] + fs_ * 0.35)}" font-size="${fs_}" text-anchor="${anchor}" fill="${C.text}" font-family="Helvetica,Arial,sans-serif" ` +
     `stroke="#fff" stroke-width="${r1(fs_ * 0.25)}" paint-order="stroke" stroke-linejoin="round">${text}</text>`;
@@ -57,6 +66,18 @@ function inset(view, crop, corner) {
     B.silhouette(view, { strokeWidth: 2.2 }) +
     `<rect x="${crop[0]}" y="${crop[1]}" width="${crop[2]}" height="${crop[3]}" fill="${C.pain}" fill-opacity=".18" stroke="${C.pain}" stroke-width="3"/></svg>`;
 }
+
+// Контуры отдельных рисунков (стопа, кисть, голова в профиль)
+const SOLE = [[100, 288], [80, 281], [68, 260], [66, 232], [73, 200], [80, 168], [74, 136], [62, 110], [62, 86], [78, 72],
+    [102, 68], [126, 74], [144, 88], [152, 112], [151, 146], [146, 184], [141, 222], [137, 256], [127, 279]];
+const HAND = [[78, 270], [70, 236], [56, 206], [34, 178], [16, 150], [8, 128], [14, 116], [26, 122], [42, 142], [60, 154],
+    [64, 120], [62, 70], [64, 36], [72, 28], [80, 36], [84, 80], [88, 110],
+    [92, 60], [96, 22], [104, 14], [112, 22], [112, 70], [112, 108],
+    [120, 64], [128, 30], [136, 24], [142, 32], [138, 76], [134, 114],
+    [144, 84], [154, 58], [162, 56], [166, 64], [158, 104], [152, 140], [152, 180], [146, 222], [138, 270]];
+const HEAD = [[110, 18], [146, 28], [172, 58], [180, 98], [172, 132], [158, 152], [152, 176], [154, 220],
+    [96, 220], [98, 184], [80, 176], [60, 172], [50, 160], [50, 146], [54, 138], [50, 130], [52, 120],
+    [38, 112], [44, 100], [53, 86], [50, 72], [56, 46], [78, 24]];
 
 const P = (pts, side) => B.shape(pts, side || 1);
 const L = (pts, side) => B.line(pts, side || 1);
@@ -343,6 +364,107 @@ defs.push(
     ]
   }
 );
+/* ---------------- этап 4: грудь, живот, бицепс, голень, шея спереди, внутренняя сторона бедра ---------------- */
+defs.push(
+  {
+    file: 'pectoralis-major.svg', title: 'Большая грудная мышца', view: 'front', crop: [96, 72, 100, 86], inset: 'lb',
+    pain: [[[3, 98], [20, 96], [30, 106], [28, 124], [14, 130], [3, 124]], [[43, 112], [48, 112], [50, 140], [53, 170], [48, 176], [45, 150]]],
+    muscles: [[[2, 92], [12, 88.5], [24, 89.5], [35, 92], [41, 101], [41, 112], [34, 122], [20, 130], [8, 129], [2, 120]]],
+    fibers: [[[3, 96], [39, 104]], [[3, 108], [40, 108]], [[4, 120], [39, 111]], [[12, 128], [38, 113]], [[18, 90.5], [39, 102]]],
+    points: [[22, 96, 1], [16, 114, 2], [36, 113, 3]],
+    labels: [
+      { at: [16, 87.5], to: [10, 78], text: 'ключица' },
+      { at: [0, 112], to: [-12, 112], text: 'грудина' },
+      { at: [39, 116], to: [44, 134], text: 'край подмышки' }
+    ]
+  },
+  {
+    file: 'pectoralis-minor.svg', title: 'Малая грудная мышца', view: 'front', crop: [96, 72, 100, 86], inset: 'lb',
+    pain: [[[34, 90], [44, 92], [46, 104], [38, 106]], [[42, 108], [47, 108], [50, 140], [56, 186], [51, 190], [45, 150]], [[8, 98], [24, 98], [28, 112], [16, 118], [6, 112]]],
+    ghost: [[[2, 92], [12, 88.5], [24, 89.5], [35, 92], [41, 101], [41, 112], [34, 122], [20, 130], [8, 129], [2, 120]]],
+    muscles: [[[31, 95], [34.5, 97], [33, 104], [28, 116], [24, 124], [19, 122], [21, 112], [27, 102]]],
+    fibers: [[[32, 97], [21, 120]], [[33, 99], [26, 122]]],
+    points: [[29, 104, 1]],
+    labels: [
+      { at: [33, 95], to: [40, 80], text: 'отросток лопатки' },
+      { at: [16, 87.5], to: [8, 78], text: 'ключица' },
+      { at: [38, 120], to: [46, 136], text: 'большая грудная' }
+    ]
+  },
+  {
+    file: 'rectus-abdominis.svg', title: 'Прямая мышца живота', view: 'front', crop: [90, 120, 100, 108], inset: 'lb',
+    pain: [[[2, 196], [16, 194], [24, 206], [18, 220], [2, 222]], [[2, 132], [18, 132], [22, 142], [16, 150], [2, 150]]],
+    muscles: [[[2, 134], [15, 134], [18, 150], [17.5, 180], [15, 212], [2, 214]], [[-2, 134], [-15, 134], [-18, 150], [-17.5, 180], [-15, 212], [-2, 214]]],
+    fibers: [[[5, 136], [5, 212]], [[11, 136], [10, 212]], [[2, 153], [17, 153]], [[2, 171], [17.5, 171]], [[2, 189], [16.5, 189]]],
+    points: [[9, 143, 1], [9, 204, 2]],
+    labels: [
+      { at: [16, 136], to: [32, 128], text: 'край рёбер' },
+      { at: [0, 166], to: [-10, 160], text: 'пупок' },
+      { at: [8, 218], to: [26, 222], text: 'лобковая кость' }
+    ]
+  },
+  {
+    file: 'biceps.svg', title: 'Двуглавая мышца плеча', view: 'front', crop: [136, 80, 74, 104], inset: 'lb',
+    pain: [[[39, 90], [48, 91], [52, 100], [44, 104], [38, 98]], [[45, 154], [53, 154], [56, 162], [50, 166], [44, 162]]],
+    muscles: [[[45, 108], [50, 106], [54.5, 118], [54.5, 136], [52, 150], [49, 156], [46, 150], [44, 136], [43.5, 120]]],
+    fibers: [[[47, 110], [48, 152]], [[51, 109], [50.5, 153]], [[53.5, 120], [51.5, 148]]],
+    points: [[50, 128, 1], [49.5, 141, 2]],
+    labels: [
+      { at: [44, 92], to: [48, 84], text: 'верхушка плеча' },
+      { at: [50, 158], to: [60, 170], text: 'локтевой сгиб' },
+      { at: [55, 124], to: [62, 116], text: 'бицепс' }
+    ]
+  },
+  {
+    file: 'tibialis-anterior.svg', title: 'Передняя большеберцовая мышца', view: 'front', crop: [98, 326, 104, 132], inset: 'lb',
+    pain: [[[19, 414], [27, 414], [28, 432], [21, 434]], [[24, 438], [31, 442], [28, 452], [23, 450]]],
+    muscles: [[[23, 350], [28.5, 352], [30.5, 368], [29, 390], [25.5, 410], [22.5, 418], [22, 400], [23.5, 380], [22.5, 362]]],
+    fibers: [[[25, 354], [23.5, 410]], [[28, 356], [26, 404]]],
+    points: [[26.5, 366, 1], [25.5, 384, 2]],
+    labels: [
+      { at: [21, 340], to: [38, 334], text: 'чашечка' },
+      { at: [21.5, 372], to: [6, 372], text: 'гребень кости' },
+      { at: [27, 446], to: [40, 452], text: 'большой палец' }
+    ]
+  },
+  {
+    file: 'fibularis.svg', title: 'Длинная малоберцовая мышца', view: 'front', crop: [98, 326, 104, 132], inset: 'lb',
+    pain: [[[26, 414], [32, 414], [34, 432], [27, 436]], [[27, 438], [32, 442], [31, 450], [26, 449]]],
+    muscles: [[[30.5, 354], [33.5, 357], [34, 372], [32, 392], [29.5, 402], [28.5, 386], [29.5, 366]]],
+    fibers: [[[31.5, 358], [30, 398]], [[33, 362], [31, 392]]],
+    points: [[32, 368, 1]],
+    labels: [
+      { at: [33, 350], to: [38, 336], text: 'бугорок под коленом' },
+      { at: [30, 426], to: [42, 424], text: 'наружная лодыжка' },
+      { at: [21.5, 380], to: [8, 384], text: 'гребень кости' }
+    ]
+  },
+  {
+    file: 'sternocleidomastoid.svg', title: 'Грудино-ключично-сосцевидная мышца', view: 'front', crop: [94, 8, 74, 92], inset: 'lt',
+    pain: [[[2, 24], [12, 22], [14, 32], [4, 34]], [[9, 36], [16, 36], [17, 48], [11, 50]], [[-4, 50], [4, 50], [3, 58], [-3, 58]]],
+    muscles: [[[15, 46], [18, 50], [15, 62], [10, 76], [5, 88], [1.5, 88], [3, 80], [8, 64], [12, 52]]],
+    fibers: [[[15, 50], [3, 87]], [[17, 51], [7, 80]]],
+    points: [[12.5, 60, 1], [8.5, 72, 2]],
+    labels: [
+      { at: [17, 46], to: [24, 40], text: 'за ухом' },
+      { at: [10, 86], to: [22, 94], text: 'ключица' },
+      { at: [4, 70], to: [20, 74], text: 'пульс — не давить' }
+    ]
+  },
+  {
+    file: 'adductors.svg', title: 'Приводящие мышцы бедра', view: 'front', crop: [98, 196, 104, 164], inset: 'lb',
+    pain: [[[6, 224], [18, 226], [20, 240], [8, 244]], [[8, 316], [16, 314], [17, 332], [10, 336]]],
+    ghost: [[[27, 214], [31, 238], [31, 272], [27, 302], [22, 317], [18, 302], [17, 272], [19, 240], [23, 219]]],
+    muscles: [[[7, 238], [15, 240], [18.5, 258], [17, 282], [13, 304], [10, 310], [8.5, 290], [7, 262]]],
+    fibers: [[[9, 240], [11, 304]], [[13, 242], [14, 290]], [[16, 248], [16.5, 276]]],
+    points: [[12, 256, 1], [12, 278, 2]],
+    labels: [
+      { at: [16, 226], to: [44, 206], text: 'паховая складка' },
+      { at: [21, 330], to: [44, 330], text: 'чашечка' },
+      { at: [28, 282], to: [44, 280], text: 'прямая мышца' }
+    ]
+  }
+);
 defs.forEach(build);
 
 /* ---------------- подошва стопы: отдельный рисунок ---------------- */
@@ -350,8 +472,7 @@ defs.forEach(build);
   const sp = (pts, closed) => B.spline(pts, closed !== false);
   const el = (cx, cy, rx, ry, rot) => `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}"${rot ? ` transform="rotate(${rot} ${cx} ${cy})"` : ''}/>`;
   const crop = [4, 16, 216, 284];
-  const sole = [[100, 288], [80, 281], [68, 260], [66, 232], [73, 200], [80, 168], [74, 136], [62, 110], [62, 86], [78, 72],
-    [102, 68], [126, 74], [144, 88], [152, 112], [151, 146], [146, 184], [141, 222], [137, 256], [127, 279]];
+  const sole = SOLE;
   let s = svgOpen(crop, 'Мышцы подошвы стопы');
   s += `<g fill="#eef1f4" stroke="#7b8794" stroke-width="2" stroke-linejoin="round"><path d="${sp(sole)}"/>` +
     el(73, 50, 13, 18, -6) + el(99, 43, 9, 13) + el(117, 48, 8.5, 12, 6) + el(132, 57, 8, 11, 12) + el(145, 69, 7.5, 10, 18) + '</g>';
@@ -385,11 +506,7 @@ defs.forEach(build);
   const T = (x, y, t, fz) => `<text x="${x}" y="${y}" font-size="${fz}" fill="${C.text}" font-family="Helvetica,Arial,sans-serif" stroke="#fff" stroke-width="2" paint-order="stroke">${t}</text>`;
   const crop = [0, 0, 220, 280];
   // левая ладонь, пальцы вверх, большой палец слева
-  const hand = [[78, 270], [70, 236], [56, 206], [34, 178], [16, 150], [8, 128], [14, 116], [26, 122], [42, 142], [60, 154],
-    [64, 120], [62, 70], [64, 36], [72, 28], [80, 36], [84, 80], [88, 110],
-    [92, 60], [96, 22], [104, 14], [112, 22], [112, 70], [112, 108],
-    [120, 64], [128, 30], [136, 24], [142, 32], [138, 76], [134, 114],
-    [144, 84], [154, 58], [162, 56], [166, 64], [158, 104], [152, 140], [152, 180], [146, 222], [138, 270]];
+  const hand = HAND;
   let s = svgOpen(crop, 'Мышцы ладони');
   s += `<path d="${sp(hand)}" fill="#eef1f4" stroke="#7b8794" stroke-width="2" stroke-linejoin="round"/>`;
   s += `<g fill="none" stroke="#a9b3bd" stroke-width="1.3" stroke-linecap="round">` +
@@ -415,9 +532,7 @@ defs.forEach(build);
 (function headProfile() {
   const sp = (pts, closed) => B.spline(pts, closed !== false);
   const crop = [14, 6, 200, 214];
-  const head = [[110, 18], [146, 28], [172, 58], [180, 98], [172, 132], [158, 152], [152, 176], [154, 220],
-    [96, 220], [98, 184], [80, 176], [60, 172], [50, 160], [50, 146], [54, 138], [50, 130], [52, 120],
-    [38, 112], [44, 100], [53, 86], [50, 72], [56, 46], [78, 24]];
+  const head = HEAD;
   function base(title) {
     let s = svgOpen(crop, title);
     s += `<path d="${sp(head)}" fill="#eef1f4" stroke="#7b8794" stroke-width="2" stroke-linejoin="round"/>`;
@@ -455,6 +570,157 @@ defs.forEach(build);
   s += label(fz, [131, 106], [160, 112], 'ухо', 'start');
   s += marker(103, 120, 1, 7.5) + marker(107, 141, 2, 7.5) + '</svg>\n';
   fs.writeFileSync(path.join(OUT, 'masseter.svg'), s);
+})();
+
+/* ---------------- китайские точки (этап 4) ---------------- */
+const ACU = { fill: '#f59e0b', ring: '#b45309' };
+function acuMarker(x, y, r) {
+  return `<circle cx="${r1(x)}" cy="${r1(y)}" r="${r1(r * 1.9)}" fill="none" stroke="${ACU.ring}" stroke-width="${r1(r * 0.25)}" stroke-dasharray="${r1(r * 0.6)} ${r1(r * 0.4)}"/>` +
+    `<circle cx="${r1(x)}" cy="${r1(y)}" r="${r}" fill="${ACU.fill}" stroke="#111827" stroke-width="${r1(r * 0.3)}"/>`;
+}
+// размерная линия с засечками и подписью
+function measure(a, b, text, fz) {
+  const dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy) || 1;
+  const nx = -dy / len * fz * 0.45, ny = dx / len * fz * 0.45;
+  const tick = q => `<line x1="${r1(q[0] - nx)}" y1="${r1(q[1] - ny)}" x2="${r1(q[0] + nx)}" y2="${r1(q[1] + ny)}"/>`;
+  const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
+  const tx = mx + nx * 2.2, ty = my + ny * 2.2 + fz * 0.35;
+  return `<g stroke="#b45309" stroke-width="${r1(fz * 0.07)}" stroke-dasharray="${r1(fz * 0.25)} ${r1(fz * 0.15)}"><line x1="${r1(a[0])}" y1="${r1(a[1])}" x2="${r1(b[0])}" y2="${r1(b[1])}"/></g>` +
+    `<g stroke="#b45309" stroke-width="${r1(fz * 0.08)}">${tick(a)}${tick(b)}</g>` +
+    `<text x="${r1(tx)}" y="${r1(ty)}" font-size="${r1(fz * 0.9)}" font-weight="700" text-anchor="${nx >= 0 ? 'start' : 'end'}" fill="#92400e" font-family="Helvetica,Arial,sans-serif" stroke="#fff" stroke-width="${r1(fz * 0.25)}" paint-order="stroke">${text}</text>`;
+}
+function buildAcu(def) {
+  const crop = def.crop, fsz = r1(crop[2] / 26), mr = r1(crop[2] / 55);
+  let s = svgOpen(crop, def.title) + B.silhouette(def.view, { strokeWidth: crop[2] / 90 });
+  (def.ghost || []).forEach(p => { s += muscle(P(p), { ghost: true }); });
+  (def.measures || []).forEach(m => { s += measure([X(m.a[0]), m.a[1]], [X(m.b[0]), m.b[1]], m.text, fsz); });
+  (def.labels || []).forEach(l => { s += label(fsz, [X(l.at[0]), l.at[1]], [X(l.to[0]), l.to[1]], l.text, l.anchor); });
+  (def.pts || []).forEach(p => { s += acuMarker(X(p[0]), p[1], mr); });
+  s += inset(def.view, crop, def.inset || 'rb') + '</svg>\n';
+  fs.writeFileSync(path.join(OUT, def.file), s);
+}
+const SCAP_SPINE_MID = [27.5, 96], SCAP_ANGLE = [22, 148];
+const acuDefs = [
+  { file: 'acu-gb20.svg', title: 'GB20 Фэн-чи', view: 'back', crop: [92, 4, 64, 84], inset: 'rb', pts: [[12, 55], [-12, 55]],
+    labels: [{ at: [0, 51], to: [-3, 72], text: 'ямка под затылком' }, { at: [17, 47], to: [22, 30], text: 'за ухом' }, { at: [0, 78], to: [4, 84], text: 'позвонок' }] },
+  { file: 'acu-gb21.svg', title: 'GB21 Цзянь-цзин', view: 'back', crop: [96, 50, 82, 64], inset: 'lb', pts: [[21.5, 85]],
+    measures: [{ a: [0, 78], b: [43, 92], text: 'середина' }],
+    labels: [{ at: [0, 78], to: [4, 62], text: 'выступающий позвонок' }, { at: [43, 92], to: [46, 104], text: 'верхушка плеча' }] },
+  { file: 'acu-si11.svg', title: 'SI11 Тянь-цзун', view: 'back', crop: [96, 78, 80, 86], inset: 'lb',
+    pts: [[SCAP_SPINE_MID[0] + (SCAP_ANGLE[0] - SCAP_SPINE_MID[0]) / 3, SCAP_SPINE_MID[1] + (SCAP_ANGLE[1] - SCAP_SPINE_MID[1]) / 3]],
+    measures: [{ a: SCAP_SPINE_MID, b: SCAP_ANGLE, text: '⅓ сверху' }],
+    labels: [{ at: [34, 95.5], to: [38, 84], text: 'ость лопатки' }, { at: SCAP_ANGLE, to: [30, 158], text: 'нижний угол' }] },
+  { file: 'acu-li15.svg', title: 'LI15 Цзянь-юй', view: 'front', crop: [128, 70, 66, 70], inset: 'lb', pts: [[42.5, 96]],
+    labels: [{ at: [44, 91], to: [50, 78], text: 'край акромиона' }, { at: [48, 104], to: [58, 112], text: 'головка плеча' }] },
+  { file: 'acu-li11.svg', title: 'LI11 Цюй-чи', view: 'front', crop: [130, 132, 76, 66], inset: 'lb', pts: [[56, 158.5]],
+    labels: [{ at: [50, 158], to: [44, 146], text: 'локтевой сгиб' }, { at: [58, 160], to: [64, 172], text: 'наружная косточка' }] },
+  { file: 'acu-li10.svg', title: 'LI10 Шоу-сань-ли', view: 'front', crop: [130, 140, 76, 66], inset: 'lb', pts: [[57.5, 171]],
+    measures: [{ a: [56, 158.5], b: [57.5, 171], text: '2 цуня' }],
+    labels: [{ at: [56, 158.5], to: [48, 146], text: 'Цюй-чи (LI11)' }, { at: [59, 186], to: [66, 194], text: 'к большому пальцу' }] },
+  { file: 'acu-te5.svg', title: 'TE5 Вай-гуань', view: 'back', crop: [130, 190, 76, 64], inset: 'rb', pts: [[53.5, 218]],
+    measures: [{ a: [53.5, 230], b: [53.5, 218], text: '2 цуня' }],
+    labels: [{ at: [52, 230], to: [42, 240], text: 'складка запястья' }, { at: [58, 214], to: [66, 206], text: 'между костями' }] },
+  { file: 'acu-bl23.svg', title: 'BL23 Шэнь-шу', view: 'back', crop: [92, 140, 80, 70], inset: 'lb', pts: [[7, 176], [-7, 176]],
+    measures: [{ a: [0, 176], b: [7, 176], text: '1,5 цуня' }],
+    labels: [{ at: [26, 157], to: [32, 148], text: 'нижнее ребро' }, { at: [30, 197], to: [34, 204], text: 'гребень таза' }] },
+  { file: 'acu-gb30.svg', title: 'GB30 Хуань-тяо', view: 'back', crop: [90, 186, 90, 84], inset: 'lb', pts: [[43 - 43 / 3, 232 - 10 / 3]],
+    measures: [{ a: [43, 232], b: [0, 222], text: '⅓ от бедра' }],
+    labels: [{ at: [43, 232], to: [44, 250], text: 'выступ бедра' }, { at: [0, 222], to: [-4, 202], text: 'крестец внизу' }] },
+  { file: 'acu-st34.svg', title: 'ST34 Лян-цю', view: 'front', crop: [102, 276, 80, 76], inset: 'lb', pts: [[29, 310]],
+    measures: [{ a: [28.5, 321], b: [29, 310], text: '2 цуня' }],
+    labels: [{ at: [21, 322], to: [8, 300], text: 'край чашечки' }] },
+  { file: 'acu-sp10.svg', title: 'SP10 Сюэ-хай', view: 'front', crop: [94, 276, 80, 76], inset: 'rb', pts: [[12.5, 310]],
+    measures: [{ a: [14, 321], b: [12.5, 310], text: '2 цуня' }],
+    labels: [{ at: [21, 322], to: [36, 300], text: 'край чашечки' }] },
+  { file: 'acu-st36.svg', title: 'ST36 Цзу-сань-ли', view: 'front', crop: [100, 320, 80, 72], inset: 'rb', pts: [[26.5, 362]],
+    measures: [{ a: [26.5, 344], b: [26.5, 362], text: '3 цуня' }],
+    labels: [{ at: [25, 343], to: [40, 334], text: 'ямка под чашечкой' }, { at: [21.5, 366], to: [8, 372], text: 'гребень кости' }] },
+  { file: 'acu-gb34.svg', title: 'GB34 Ян-лин-цюань', view: 'front', crop: [100, 320, 80, 72], inset: 'lb', pts: [[30.5, 357]],
+    labels: [{ at: [33, 350], to: [42, 336], text: 'головка малоберцовой' }, { at: [21, 340], to: [8, 334], text: 'чашечка' }] },
+  { file: 'acu-sp9.svg', title: 'SP9 Инь-лин-цюань', view: 'front', crop: [96, 320, 80, 72], inset: 'rb', pts: [[13, 352]],
+    labels: [{ at: [13, 345], to: [-8, 336], text: 'край кости под коленом' }, { at: [21, 340], to: [32, 330], text: 'чашечка' }] },
+  { file: 'acu-sp6.svg', title: 'SP6 Сань-инь-цзяо', view: 'front', crop: [94, 384, 74, 72], inset: 'rb', pts: [[13.5, 411]],
+    measures: [{ a: [12.5, 428], b: [13.5, 411], text: '3 цуня' }],
+    labels: [{ at: [12, 428], to: [-4, 436], text: 'внутренняя лодыжка' }, { at: [18, 412], to: [30, 402], text: 'край кости' }] },
+  { file: 'acu-bl57.svg', title: 'BL57 Чэн-шань', view: 'back', crop: [96, 352, 80, 80], inset: 'rb', pts: [[21.5, 392]],
+    labels: [{ at: [15, 380], to: [2, 370], text: 'головки икры' }, { at: [18, 412], to: [4, 418], text: 'ахилл' }] },
+  { file: 'acu-bl60.svg', title: 'BL60 Кунь-лунь', view: 'back', crop: [96, 400, 72, 58], inset: 'lb', pts: [[21, 427]],
+    labels: [{ at: [24, 428], to: [32, 420], text: 'наружная лодыжка' }, { at: [17.5, 418], to: [24, 408], text: 'ахилл' }] },
+  { file: 'acu-ki3.svg', title: 'KI3 Тай-си', view: 'back', crop: [90, 400, 72, 58], inset: 'rb', pts: [[14.5, 427]],
+    labels: [{ at: [12, 428], to: [2, 418], text: 'внутренняя лодыжка' }, { at: [17.5, 418], to: [24, 408], text: 'ахилл' }] }
+];
+acuDefs.forEach(buildAcu);
+
+// отдельные рисунки: тыл кисти, тыл стопы, подошва, голова в профиль
+(function acuCustom() {
+  const sp = (pts, closed) => B.spline(pts, closed !== false);
+  const el = (cx, cy, rx, ry, rot) => `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}"${rot ? ` transform="rotate(${rot} ${cx} ${cy})"` : ''}/>`;
+  const relief = paths => `<g fill="none" stroke="#a9b3bd" stroke-width="1.3" stroke-linecap="round">` + paths.map(d => `<path d="${d}"/>`).join('') + '</g>';
+  const fz = 9, mr = 4.5;
+  const write = (file, s) => fs.writeFileSync(path.join(OUT, file), s + '</svg>\n');
+
+  // тыл правой кисти, пальцы вверх, большой палец слева
+  function handBack(title) {
+    let s = svgOpen([0, 0, 220, 280], title);
+    s += `<path d="${sp(HAND)}" fill="#eef1f4" stroke="#7b8794" stroke-width="2" stroke-linejoin="round"/>`;
+    s += relief([sp([[90, 240], [76, 120]], false), sp([[104, 242], [102, 114]], false), sp([[118, 242], [127, 120]], false),
+      sp([[130, 240], [148, 136]], false), sp([[72, 234], [34, 166]], false), sp([[74, 254], [106, 258], [140, 254]], false)]);
+    s += `<g fill="#e2e7ec" stroke="#a9b3bd" stroke-width="1">` + el(76, 118, 6, 5) + el(102, 112, 6, 5) + el(127, 118, 6, 5) + el(148, 134, 5, 4.5) + el(34, 164, 5.5, 5) + '</g>';
+    return s;
+  }
+  let s = handBack('LI4 Хэ-гу');
+  s += label(fz, [83, 179], [150, 196], 'середина 2-й кости', 'start');
+  s += label(fz, [52, 160], [6, 214], 'перепонка', 'start');
+  s += label(fz, [106, 256], [150, 266], 'запястье', 'start');
+  s += acuMarker(72, 180, mr);
+  write('acu-li4.svg', s);
+
+  s = handBack('SI3 Хоу-си');
+  s += label(fz, [148, 134], [172, 118], 'сустав мизинца', 'start');
+  s += label(fz, [152, 170], [172, 186], 'край ладони', 'start');
+  s += acuMarker(150, 148, mr);
+  write('acu-si3.svg', s);
+
+  // тыл правой стопы сверху, большой палец слева
+  s = svgOpen([4, 16, 216, 284], 'LR3 Тай-чун');
+  s += `<g fill="#eef1f4" stroke="#7b8794" stroke-width="2" stroke-linejoin="round"><path d="${sp(SOLE)}"/>` +
+    el(73, 50, 13, 18, -6) + el(99, 43, 9, 13) + el(117, 48, 8.5, 12, 6) + el(132, 57, 8, 11, 12) + el(145, 69, 7.5, 10, 18) + '</g>';
+  s += relief([sp([[76, 84], [86, 168]], false), sp([[100, 78], [98, 168]], false), sp([[118, 84], [110, 170]], false),
+    sp([[134, 94], [122, 172]], false), sp([[146, 104], [134, 176]], false)]);
+  s += `<path d="${sp([[72, 230], [86, 214], [106, 210], [128, 214], [140, 232], [136, 270], [106, 280], [78, 270]])}" fill="#e2e7ec" stroke="#7b8794" stroke-width="1.5"/>`;
+  s += label(fz, [86, 74], [22, 92], 'между 1 и 2 пальцами', 'start');
+  s += label(fz, [92, 166], [150, 176], 'кости сходятся', 'start');
+  s += label(fz, [106, 250], [150, 262], 'голень', 'start');
+  s += measure([86, 72], [90, 140], '≈ 2 цуня', fz);
+  s += acuMarker(90, 140, mr);
+  write('acu-lr3.svg', s);
+
+  // подошва левой стопы, большой палец слева
+  s = svgOpen([4, 16, 216, 284], 'KI1 Юн-цюань');
+  s += `<g fill="#eef1f4" stroke="#7b8794" stroke-width="2" stroke-linejoin="round"><path d="${sp(SOLE)}"/>` +
+    el(73, 50, 13, 18, -6) + el(99, 43, 9, 13) + el(117, 48, 8.5, 12, 6) + el(132, 57, 8, 11, 12) + el(145, 69, 7.5, 10, 18) + '</g>';
+  s += relief([sp([[72, 236], [86, 228], [104, 226], [122, 229], [136, 238]], false), sp([[66, 112], [84, 104], [106, 102], [128, 106], [148, 118]], false)]);
+  s += `<g stroke="#b45309" stroke-width=".8" stroke-dasharray="3 2"><line x1="108" y1="64" x2="100" y2="288"/></g>` +
+    `<g stroke="#b45309" stroke-width="1.2"><line x1="101" y1="138" x2="111" y2="138"/><line x1="103" y1="64" x2="113" y2="64"/><line x1="95" y1="288" x2="105" y2="288"/></g>`;
+  s += `<text x="118" y="104" font-size="${fz}" font-weight="700" fill="#92400e" font-family="Helvetica,Arial,sans-serif" stroke="#fff" stroke-width="2" paint-order="stroke">⅓</text>`;
+  s += `<text x="118" y="218" font-size="${fz}" font-weight="700" fill="#92400e" font-family="Helvetica,Arial,sans-serif" stroke="#fff" stroke-width="2" paint-order="stroke">⅔</text>`;
+  s += label(fz, [108, 64], [150, 30], 'между 2 и 3 пальцами', 'start');
+  s += label(fz, [100, 284], [150, 290], 'край пятки', 'start');
+  s += acuMarker(106, 138, mr);
+  write('acu-ki1.svg', s);
+
+  // голова в профиль
+  s = svgOpen([14, 6, 200, 214], 'Тай-ян');
+  s += `<path d="${sp(HEAD)}" fill="#eef1f4" stroke="#7b8794" stroke-width="2" stroke-linejoin="round"/>`;
+  s += relief([sp([[134, 96], [128, 90], [124, 100], [126, 116], [132, 122], [138, 112], [136, 100]], true),
+    sp([[60, 92], [66, 88], [73, 92], [66, 95]], true), sp([[56, 78], [66, 74], [78, 78]], false),
+    sp([[76, 108], [96, 104], [122, 104]], false), sp([[124, 122], [118, 140], [112, 152], [94, 160], [66, 170]], false), sp([[54, 138], [64, 139]], false)]);
+  s += `<g stroke="#b45309" stroke-width="1" stroke-dasharray="2 1.5"><line x1="78" y1="78" x2="73" y2="92"/><line x1="75.5" y1="85" x2="86" y2="86"/></g>`;
+  s += label(8.5, [78, 78], [60, 52], 'конец брови', 'start');
+  s += label(8.5, [73, 92], [22, 112], 'уголок глаза', 'start');
+  s += label(8.5, [131, 106], [160, 120], 'ухо', 'start');
+  s += acuMarker(86, 86, 4);
+  write('acu-taiyang.svg', s);
 })();
 
 /* ---------------- иконка приложения ---------------- */

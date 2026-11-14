@@ -243,6 +243,41 @@
     return h;
   }
 
+  // «Рядом»: мышцы и китайские точки той же зоны тела. Выше в списке — явно связанные
+  // (поле related у точки), затем те, у кого больше общих зон.
+  function linked(a, b) {
+    return (a.related || []).indexOf(b.id) >= 0 || (b.related || []).indexOf(a.id) >= 0;
+  }
+  // соседние зоны — запасной вариант, если в своей зоне мало карточек
+  var ADJ = {
+    head: ['neck'], neck: ['head', 'shoulder', 'upper_back'], shoulder: ['neck', 'upper_back', 'arm_front', 'arm_back', 'chest'],
+    chest: ['shoulder', 'abdomen', 'arm_front'], abdomen: ['chest', 'lower_back', 'thigh_front'],
+    upper_back: ['neck', 'shoulder', 'lower_back'], lower_back: ['upper_back', 'glutes', 'abdomen'],
+    glutes: ['lower_back', 'thigh_back', 'thigh_front'], arm_front: ['shoulder', 'elbow'], arm_back: ['shoulder', 'elbow'],
+    elbow: ['arm_front', 'arm_back', 'forearm'], forearm: ['elbow', 'hand'], hand: ['forearm'],
+    thigh_front: ['glutes', 'knee', 'abdomen'], thigh_back: ['glutes', 'knee'], knee: ['thigh_front', 'thigh_back', 'shin', 'calf'],
+    shin: ['knee', 'foot', 'calf'], calf: ['knee', 'foot', 'shin'], foot: ['shin', 'calf']
+  };
+  function nearby(c, max) {
+    max = max || 6;
+    var zs = c.zones || [], adj = [];
+    zs.forEach(function (z) { (ADJ[z] || []).forEach(function (a) { if (zs.indexOf(a) < 0 && adj.indexOf(a) < 0) adj.push(a); }); });
+    var scored = DATA.cards.filter(function (x) { return x.id !== c.id; }).map(function (x) {
+      var xz = x.zones || [];
+      var common = xz.filter(function (z) { return zs.indexOf(z) >= 0; }).length;
+      var side = xz.filter(function (z) { return adj.indexOf(z) >= 0; }).length;
+      return { c: x, same: common > 0 || linked(c, x), score: (linked(c, x) ? 100 : 0) + common * 10 + side };
+    }).filter(function (o) { return o.score > 0; });
+    scored.sort(function (a, b) { return b.score - a.score; });
+    var res = { muscles: [], acu: [] };
+    scored.forEach(function (o) {
+      var bucket = isAcu(o.c) ? res.acu : res.muscles;
+      // из соседних зон добираем, только пока в списке меньше трёх карточек
+      if (bucket.length < max && (o.same || bucket.length < 3)) bucket.push(o.c);
+    });
+    return res;
+  }
+
   function viewCard(id) {
     var c = cardById[id];
     if (!c) return viewNotFound();
@@ -294,9 +329,9 @@
 
     h += '<section><h2>Моя заметка</h2><textarea id="note" rows="4" placeholder="Например: нашёл точнее на 2 пальца ниже">' +
       esc(u.note || '') + '</textarea><p id="note-state" class="muted small">Сохраняется автоматически, только в этом телефоне.</p></section>';
-    var rel = isAcu(c) ? (c.related || []).map(function (r) { return cardById[r]; }).filter(Boolean)
-      : acupoints().filter(function (a) { return (a.related || []).indexOf(c.id) >= 0; });
-    if (rel.length) h += '<section><h2>' + (isAcu(c) ? 'Мышцы рядом' : 'Китайские точки рядом') + '</h2>' + cardList(rel) + '</section>';
+    var near = nearby(c);
+    if (near.muscles.length) h += '<section><h2>Мышцы рядом</h2>' + cardList(near.muscles) + '</section>';
+    if (near.acu.length) h += '<section><h2>Китайские точки рядом</h2>' + cardList(near.acu) + '</section>';
     h += '<section class="sources"><h2>Источники</h2>' + list(c.sources) + '</section></article>' + DISCLAIMER;
     app.innerHTML = h;
 

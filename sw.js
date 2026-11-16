@@ -4,7 +4,7 @@
    Список схем берётся из data/cards.json, поэтому при добавлении карточек
    этот файл править не нужно. */
 'use strict';
-var CACHE = 'tochki-v5';
+var CACHE = 'tochki-v6';
 var CORE = [
   './',
   'index.html',
